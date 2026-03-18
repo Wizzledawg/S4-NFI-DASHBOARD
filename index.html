@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S4 NFI League · Q1 Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080a0f; --surface: #0e1118; --surface2: #13161f;
+    --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+    --text: #e8e6df; --muted: #606060; --muted2: #3a3835;
+    --green: #3ecf8e; --green-dim: rgba(62,207,142,0.12);
+    --amber: #f5a623; --amber-dim: rgba(245,166,35,0.12);
+    --red: #f06060;   --red-dim: rgba(240,96,96,0.12);
+    --blue: #5b9cf6;  --blue-dim: rgba(91,156,246,0.12);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 20px 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(8,10,15,0.96); backdrop-filter: blur(12px); z-index: 100; }
+  .logo-block { display: flex; flex-direction: column; gap: 2px; }
+  .logo-title { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+  .logo-title span { color: var(--green); }
+  .logo-sub { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .currency-switcher { display: flex; background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .curr-btn { font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; padding: 6px 14px; border-radius: 7px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: all .2s; }
+  .curr-btn.active { background: var(--surface); color: var(--text); border: 1px solid var(--border2); }
+  .curr-btn:hover:not(.active) { color: var(--text); }
+  .rate-badge { font-size: 10px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; white-space: nowrap; }
+  .live-chip { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(62,207,142,0.35); color: var(--green); background: var(--green-dim); display: flex; align-items: center; gap: 6px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{ opacity:1; box-shadow:0 0 0 0 rgba(62,207,142,.5); } 50%{ opacity:.7; box-shadow:0 0 0 5px rgba(62,207,142,0); } }
+  .source-banner { display: flex; align-items: center; gap: 10px; padding: 9px 32px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .source-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .source-dot.live  { background: var(--green); box-shadow: 0 0 6px rgba(62,207,142,.5); }
+  .source-dot.cache { background: var(--amber); }
+  main { padding: 24px 32px 60px; max-width: 1400px; margin: 0 auto; }
+  .kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 18px 16px; position: relative; overflow: hidden; animation: fadeUp .45s ease both; }
+  .kpi-card::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent); }
+  .kpi-card:nth-child(1){animation-delay:.05s} .kpi-card:nth-child(2){animation-delay:.10s}
+  .kpi-card:nth-child(3){animation-delay:.15s} .kpi-card:nth-child(4){animation-delay:.20s}
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .kpi-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; margin-bottom:12px; }
+  .kpi-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+  .kpi-value { font-size:30px; font-weight:700; color:#fff; line-height:1; margin-bottom:8px; letter-spacing:-0.5px; }
+  .kpi-delta { font-size:11px; color:var(--muted); }
+  .mid-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; position:relative; overflow:hidden; animation:fadeUp .45s ease .25s both; }
+  .panel::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent); }
+  .panel-title { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:16px; }
+  .bar-chart { display:flex; align-items:flex-end; gap:16px; height:110px; margin-bottom:10px; }
+  .bar-group { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; height:100%; justify-content:flex-end; }
+  .bar-val { font-size:10px; color:var(--muted); white-space:nowrap; }
+  .bars { display:flex; gap:3px; align-items:flex-end; width:100%; justify-content:center; }
+  .bar { border-radius:3px 3px 0 0; width:18px; }
+  .bar-lbl { font-size:11px; color:var(--muted); }
+  .legend { display:flex; gap:14px; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); }
+  .legend-dot { width:8px; height:8px; border-radius:2px; }
+  .split-chart { display:flex; flex-direction:column; gap:22px; }
+  .split-row { display:flex; flex-direction:column; gap:7px; }
+  .split-header { display:flex; justify-content:space-between; align-items:baseline; }
+  .split-name { font-size:13px; font-weight:500; }
+  .split-nums { font-size:11px; color:var(--muted); }
+  .split-track { height:6px; background:var(--surface2); border-radius:6px; overflow:hidden; }
+  .split-fill { height:100%; border-radius:6px; transition:width .9s cubic-bezier(.4,0,.2,1); }
+  .split-sub { font-size:10px; color:var(--muted2); display:flex; gap:12px; }
+  .leaderboard-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; animation:fadeUp .45s ease .35s both; position:relative; overflow:hidden; }
+  .leaderboard-wrap::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent); }
+  .lb-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+  .lb-filters { display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-btn { font-family:inherit; font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:4px 12px; border-radius:20px; border:1px solid var(--border2); background:transparent; color:var(--muted); cursor:pointer; transition:all .15s; }
+  .filter-btn.active, .filter-btn:hover { background:var(--surface2); color:var(--text); }
+  .lb-table { width:100%; border-collapse:collapse; }
+  .lb-table thead th { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted2); font-weight:500; padding:0 8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  .lb-table thead th.r { text-align:right; }
+  .lb-table tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
+  .lb-table tbody tr:hover { background:rgba(255,255,255,.02); }
+  .lb-table tbody tr:last-child { border-bottom:none; }
+  .lb-table td { padding:11px 8px; font-size:12px; color:var(--text); vertical-align:middle; }
+  .lb-table td.r { text-align:right; }
+  .rank { font-size:16px; font-weight:700; color:var(--muted2); }
+  .rank.top { color:var(--green); }
+  .c-name { font-weight:600; font-size:13px; }
+  .c-type { font-size:10px; color:var(--muted); }
+  .badge { display:inline-block; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:2px 8px; border-radius:20px; font-weight:600; }
+  .badge-e { background:rgba(245,166,35,.12); color:var(--amber); border:1px solid rgba(245,166,35,.25); }
+  .badge-c { background:rgba(91,156,246,.12); color:var(--blue); border:1px solid rgba(91,156,246,.25); }
+  .amt { font-variant-numeric:tabular-nums; }
+  .amt.zero { color:var(--muted2); }
+  .achieved-cell { display:flex; align-items:center; gap:7px; justify-content:flex-end; }
+  .micro-bar { width:52px; height:4px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .micro-fill { height:100%; border-radius:4px; }
+  .pct { font-weight:600; min-width:34px; text-align:right; font-size:12px; }
+  .cg{color:var(--green)} .ca{color:var(--amber)} .cr{color:var(--red)}
+  .fg{background:var(--green)} .fa{background:var(--amber)} .fr{background:var(--red)}
+  .totals-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; animation:fadeUp .45s ease .4s both; }
+  .total-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; position:relative; overflow:hidden; }
+  .total-card::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent); }
+  .total-card.hl { border-color:rgba(62,207,142,.25); }
+  .total-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+  .total-value { font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+  .total-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+  .total-pct { font-size:36px; font-weight:700; letter-spacing:-1px; }
+  #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:999; transition:opacity .4s; }
+  .loader-title { font-size:20px; font-weight:700; color:var(--green); letter-spacing:3px; text-transform:uppercase; }
+  .loader-bar { width:160px; height:2px; background:var(--surface2); border-radius:2px; overflow:hidden; }
+  .loader-fill { height:100%; background:var(--green); animation:load .9s ease forwards; }
+  @keyframes load { from{width:0} to{width:100%} }
+  .loader-sub { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+  footer { text-align:center; padding:16px 32px 24px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted2); border-top:1px solid var(--border); }
+  footer span { color:var(--green); }
+  @media(max-width:880px){ main{padding:16px} header{padding:14px 16px;flex-direction:column;align-items:flex-start;gap:12px;} .kpi-strip{grid-template-columns:repeat(2,1fr)} .mid-row{grid-template-columns:1fr} .totals-strip{grid-template-columns:1fr} .source-banner{padding:8px 16px;} }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loader-title">S4 NFI League</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-sub">Connecting to Google Sheets…</div>
+</div>
+
+<header>
+  <div class="logo-block">
+    <div class="logo-title">S4 <span>NFI</span> League</div>
+    <div class="logo-sub">Revenue &amp; Sales · Q1 · Apr – Jun</div>
+  </div>
+  <div class="header-right">
+    <div class="currency-switcher">
+      <button class="curr-btn active" data-curr="ZAR">🇿🇦 ZAR</button>
+      <button class="curr-btn" data-curr="USD">🇺🇸 USD</button>
+      <button class="curr-btn" data-curr="GBP">🇬🇧 GBP</button>
+    </div>
+    <div class="rate-badge" id="rateBadge">Base currency · ZAR</div>
+    <div class="live-chip"><div class="live-dot"></div><span id="liveLabel">Live</span></div>
+  </div>
+</header>
+
+<div class="source-banner">
+  <div class="source-dot live" id="sourceDot"></div>
+  <span id="sourceText">Fetching live data from Google Sheets…</span>
+</div>
+
+<main>
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--green-dim);color:var(--green)">R</div>
+      <div class="kpi-label">S4 Total Actual</div>
+      <div class="kpi-value" id="k1">—</div>
+      <div class="kpi-delta" id="k1s"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--amber-dim);color:var(--amber)">E</div>
+      <div class="kpi-label">S4 Energy · Perm</div>
+      <div class="kpi-value" id="k2">—</div>
+      <div class="kpi-delta" id="k2s"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--blue-dim);color:var(--blue)">C</div>
+      <div class="kpi-label">S4 Cloud · Temp</div>
+      <div class="kpi-value" id="k3">—</div>
+      <div class="kpi-delta" id="k3s"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--red-dim);color:var(--red)">%</div>
+      <div class="kpi-label">Overall Achievement</div>
+      <div class="kpi-value" id="k4">—</div>
+      <div class="kpi-delta" id="k4s"></div>
+    </div>
+  </div>
+
+  <div class="mid-row">
+    <div class="panel">
+      <div class="panel-title">Monthly Billings</div>
+      <div class="bar-chart" id="barChart"></div>
+      <div class="legend" id="barLegend"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Division vs Target</div>
+      <div class="split-chart" id="splitChart"></div>
+    </div>
+  </div>
+
+  <div class="leaderboard-wrap">
+    <div class="lb-header">
+      <div class="panel-title" style="margin-bottom:0">Consultant Leaderboard</div>
+      <div class="lb-filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="energy">Energy</button>
+        <button class="filter-btn" data-filter="cloud">Cloud</button>
+        <button class="filter-btn" data-filter="perm">Perm</button>
+        <button class="filter-btn" data-filter="temp">Temp</button>
+        <button class="filter-btn" data-filter="billing">Billing only</button>
+      </div>
+    </div>
+    <table class="lb-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Consultant</th><th>Division</th>
+          <th class="r">Apr</th><th class="r">May</th><th class="r">Jun</th>
+          <th class="r">Q1 Actual</th><th class="r">Q1 Target</th><th class="r">Achieved</th>
+        </tr>
+      </thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+  </div>
+
+  <div class="totals-strip" id="totalsStrip"></div>
+</main>
+
+<footer>Data: <span>Google Sheets (Live)</span> · Hosted: <span>GitHub Pages</span> · Refreshes on every page load</footer>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9Ld3MQ4IU614rQ3JnnlKgLbSfCpoZvO51STfkU1RPBWnn6Df8dT1DFOlcRBOUgGqzn93eFr1jdYKz/pub?output=csv';
+
+const RATES = {
+  ZAR: { rate: 1,     sym: 'R', label: 'Base currency · ZAR' },
+  USD: { rate: 16.67, sym: '$', label: '1 USD = R 16.67' },
+  GBP: { rate: 21.15, sym: '£', label: '1 GBP = R 21.15' },
+};
+
+const FALLBACK = [
+  { name:'Lee Bishop',         type:'PERM', div:'E', apr:870000, may:800000, jun:0,     target:900000  },
+  { name:'Warren Beder',       type:'PERM', div:'E', apr:74250,  may:150000, jun:0,     target:900000  },
+  { name:'Lufuno Orji',        type:'PERM', div:'E', apr:74250,  may:0,      jun:0,     target:525000  },
+  { name:'Kyla Morgan',        type:'PERM', div:'E', apr:12000,  may:12000,  jun:12000, target:510000  },
+  { name:'Zara Kavalieratos',  type:'PERM', div:'E', apr:500000, may:0,      jun:0,     target:450000  },
+  { name:'JP Roos',            type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:450000  },
+  { name:'Matthew Taylor',     type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:450000  },
+  { name:'Nicole Samuels',     type:'PERM', div:'E', apr:15600,  may:15600,  jun:15600, target:648000  },
+  { name:'Robyn Andreka',      type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:405000  },
+  { name:'Nikkita Elliot',     type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:50000   },
+  { name:'Mae Alwahi',         type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:150000  },
+  { name:'Chris Butcher',      type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:300000  },
+  { name:'Lara JVR',           type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:300000  },
+  { name:'Zoe W',              type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:0       },
+  { name:'Josh Wegelar',       type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:0       },
+  { name:'Nina Jacobs',        type:'PERM', div:'E', apr:0,      may:0,      jun:0,     target:0       },
+  { name:'Steph Payne',        type:'PERM', div:'C', apr:0,      may:0,      jun:0,     target:375000  },
+  { name:'Rodney Govender',    type:'TEMP', div:'C', apr:29200,  may:29200,  jun:25200, target:340000  },
+  { name:'Mandy Duvenage',     type:'TEMP', div:'C', apr:96880,  may:96880,  jun:92880, target:277875  },
+  { name:'Jesse van der Poel', type:'TEMP', div:'C', apr:20800,  may:20800,  jun:20800, target:150000  },
+  { name:'Sheldon Botha',      type:'TEMP', div:'C', apr:46880,  may:46880,  jun:46880, target:350000  },
+  { name:'Tom Harding',        type:'TEMP', div:'C', apr:74825,  may:74825,  jun:74825, target:440000  },
+  { name:'Max Goodger',        type:'TEMP', div:'C', apr:0,      may:0,      jun:0,     target:340000  },
+];
+
+// ── CSV PARSER ─────────────────────────────────────────────────────────────
+// Sheet CSV structure (confirmed from console):
+// Col: 0=blank 1=Name 2=Type 3=Business 4=Apr(hdr) 5=Apr$ 6=May(hdr) 7=May$ 
+//      8=Jun(hdr) 9=Jun$ 10=blank 11=Actual(hdr) 12=Actual$ 13=blank 14=Target(hdr) 15=Target$ 16=%
+// BUT — the header row itself shows Apr at col 4, so value cols are:
+// apr=5, may=7, jun=9, actual=12, target=15
+// We detect these by scanning the HEADER row for the label then taking +1
+
+function parseCSV(text) {
+  // Robust CSV row parser (handles quoted commas)
+  function parseRow(line) {
+    const out = []; let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { out.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  const rows = text.trim().split('\n').map(parseRow);
+
+  // ── Find the header row (contains "Consultant / Month") ──
+  let hIdx = rows.findIndex(r => r.some(c => /consultant.*month/i.test(c)));
+  if (hIdx === -1) hIdx = rows.findIndex(r => r.some(c => /consultant/i.test(c)));
+  if (hIdx === -1) { console.error('No header row found'); return null; }
+
+  const H = rows[hIdx];
+  console.log('Header cols:', H.map((v,i) => `[${i}]="${v}"`).join(' | '));
+
+  // ── Find column positions by scanning the header row ──
+  const col = label => H.findIndex(h => new RegExp(label,'i').test(h));
+
+  const nameIdx = col('consultant');
+  const typeIdx = col('perm.*temp|temp.*perm');
+  const bizIdx  = col('business');
+
+  // For each month/total: find the LABEL column, then scan RIGHT for the first numeric-looking value column
+  // (skipping the "R" or "$" currency column)
+  function findValueCol(labelPattern) {
+    const lbl = H.findIndex(h => new RegExp(labelPattern, 'i').test(h));
+    if (lbl === -1) return -1;
+    // Check lbl+1 and lbl+2 — use the one that has numbers in data rows
+    // We test row hIdx+2 (first actual data row)
+    const testRow = rows[hIdx + 2] || rows[hIdx + 1] || [];
+    for (let offset = 1; offset <= 3; offset++) {
+      const v = (testRow[lbl + offset] || '').replace(/[^0-9.]/g, '');
+      if (v && parseFloat(v) > 0) {
+        console.log(`  "${H[lbl]}" label at [${lbl}] → value at [${lbl+offset}] (val="${testRow[lbl+offset]}")`);
+        return lbl + offset;
+      }
+    }
+    // fallback: +1
+    return lbl + 1;
+  }
+
+  const aprCol    = findValueCol('^apr$');
+  const mayCol    = findValueCol('^may$');
+  const junCol    = findValueCol('^jun$');
+  const actualCol = findValueCol('q1.*actual');
+  const targetCol = findValueCol('q1.*target');
+
+  console.log(`Final cols → name:${nameIdx} type:${typeIdx} biz:${bizIdx} | apr:${aprCol} may:${mayCol} jun:${junCol} | actual:${actualCol} target:${targetCol}`);
+
+  const stopWords = ['total','smart4','s4 total','contract','perm','temp'];
+  const n = v => {
+    const s = (v || '').replace(/[^0-9.]/g, '');
+    return s ? parseFloat(s) : 0;
+  };
+
+  const consultants = [];
+  for (let i = hIdx + 1; i < rows.length; i++) {
+    const row  = rows[i];
+    const name = (row[nameIdx] || '').trim();
+    if (!name) continue;
+    if (stopWords.some(w => name.toLowerCase().includes(w))) continue;
+
+    const type = (row[typeIdx] || '').trim().toUpperCase();
+    const biz  = (row[bizIdx]  || '').trim();
+    if (!type && !biz) continue;
+
+    const div    = biz.toLowerCase().includes('energy') ? 'E' : 'C';
+    const apr    = n(row[aprCol]);
+    const may    = n(row[mayCol]);
+    const jun    = n(row[junCol]);
+    const target = n(row[targetCol]);
+
+    console.log(`  → ${name} | ${div} | Apr:${apr} May:${may} Jun:${jun} Target:${target}`);
+    consultants.push({ name, type, div, apr, may, jun, target });
+  }
+
+  return consultants.length > 0 ? consultants : null;
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let CURR = 'ZAR', FILTER = 'all', DATA = [];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const cv  = n => n / RATES[CURR].rate;
+const sy  = () => RATES[CURR].sym;
+const sum = (arr, k) => arr.reduce((s, c) => s + (c[k] || 0), 0);
+
+function fmt(n) {
+  if (!n || n <= 0) return sy() + '–';
+  const v = cv(n);
+  if (v >= 1000000) return sy() + (v/1000000).toFixed(2) + 'M';
+  if (v >= 1000)    return sy() + Math.round(v/1000) + 'K';
+  return sy() + Math.round(v).toLocaleString();
+}
+function fmtF(n) {
+  if (!n || n <= 0) return '—';
+  return sy() + ' ' + Math.round(cv(n)).toLocaleString('en-ZA');
+}
+const pc = p => p >= 80 ? 'cg' : p >= 40 ? 'ca' : 'cr';
+const fc = p => p >= 80 ? 'fg' : p >= 40 ? 'fa' : 'fr';
+function proc() {
+  return DATA.map(c => ({...c, actual: c.apr+c.may+c.jun, pct: c.target>0 ? Math.round(((c.apr+c.may+c.jun)/c.target)*100) : null }));
+}
+function set(id, html) {
+  const el = document.getElementById(id); if (!el) return;
+  if (typeof html==='string' && html.includes('<')) el.innerHTML = html; else el.textContent = html;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function renderAll() {
+  const d=proc(), en=d.filter(c=>c.div==='E'), cl=d.filter(c=>c.div==='C');
+  const totA=sum(d,'actual'), totT=d.filter(c=>c.target>0).reduce((s,c)=>s+c.target,0);
+  const enA=sum(en,'actual'), enT=en.filter(c=>c.target>0).reduce((s,c)=>s+c.target,0);
+  const clA=sum(cl,'actual'), clT=cl.filter(c=>c.target>0).reduce((s,c)=>s+c.target,0);
+  const ovP=totT>0?Math.round((totA/totT)*100):0;
+  const enP=enT>0?Math.round((enA/enT)*100):0;
+  const clP=clT>0?Math.round((clA/clT)*100):0;
+  const actv=d.filter(c=>c.actual>0).length;
+
+  set('k1', fmt(totA));
+  set('k1s',`<span style="color:var(--muted)">Target: ${fmtF(totT)}</span>`);
+  set('k2', fmt(enA));
+  set('k2s',`<span class="${pc(enP)}">${enP}% of target</span>`);
+  set('k3', fmt(clA));
+  set('k3s',`<span class="${pc(clP)}">${clP}% of target</span>`);
+  set('k4', ovP+'%');
+  set('k4s',`<span class="cg">${actv}</span> <span style="color:var(--muted)">of ${DATA.length} billing</span>`);
+
+  const mVals=['apr','may','jun'].map((k,i)=>({lbl:['Apr','May','Jun'][i],tot:sum(d,k),e:sum(en,k),c:sum(cl,k)}));
+  const maxM=Math.max(...mVals.map(m=>m.tot),1);
+  document.getElementById('barChart').innerHTML=mVals.map(m=>{
+    const eH=Math.max(4,Math.round((m.e/maxM)*100)), cH=Math.max(4,Math.round((m.c/maxM)*100));
+    return `<div class="bar-group"><div class="bar-val">${fmt(m.tot)}</div><div class="bars"><div class="bar" style="height:${eH}px;background:var(--amber);opacity:.85"></div><div class="bar" style="height:${cH}px;background:var(--blue);opacity:.85"></div></div><div class="bar-lbl">${m.lbl}</div></div>`;
+  }).join('');
+  document.getElementById('barLegend').innerHTML=`<div class="legend-item"><div class="legend-dot" style="background:var(--amber);opacity:.85"></div>Energy</div><div class="legend-item"><div class="legend-dot" style="background:var(--blue);opacity:.85"></div>Cloud</div>`;
+
+  document.getElementById('splitChart').innerHTML=
+    [{name:'S4 Energy (Perm)',a:enA,t:enT,p:enP,col:'var(--amber)'},{name:'S4 Cloud (Temp)',a:clA,t:clT,p:clP,col:'var(--blue)'}]
+    .map(s=>`<div class="split-row"><div class="split-header"><div class="split-name">${s.name}</div><div class="split-nums">${fmtF(s.a)} / ${fmtF(s.t)}</div></div><div class="split-track"><div class="split-fill" style="width:${Math.min(100,s.p)}%;background:${s.col}"></div></div><div class="split-sub"><span style="color:${s.col};font-weight:600">${s.p}% achieved</span><span>${fmtF(Math.max(0,s.t-s.a))} remaining</span></div></div>`).join('');
+
+  renderTable(d, FILTER);
+
+  document.getElementById('totalsStrip').innerHTML=`
+    <div class="total-card hl"><div><div class="total-label">S4 Total Q1</div><div class="total-value">${fmtF(totA)}</div><div class="total-sub">Target: ${fmtF(totT)}</div></div><div style="text-align:right"><div class="total-pct ${pc(ovP)}">${ovP}%</div><div class="total-sub">of target</div></div></div>
+    <div class="total-card"><div><div class="total-label">Smart4 Energy</div><div class="total-value">${fmtF(enA)}</div><div class="total-sub">Target: ${fmtF(enT)}</div></div><div style="text-align:right"><div class="total-pct ${pc(enP)}">${enP}%</div><div class="total-sub">of target</div></div></div>
+    <div class="total-card"><div><div class="total-label">Smart4 Cloud</div><div class="total-value">${fmtF(clA)}</div><div class="total-sub">Target: ${fmtF(clT)}</div></div><div style="text-align:right"><div class="total-pct ${pc(clP)}">${clP}%</div><div class="total-sub">of target</div></div></div>`;
+}
+
+function renderTable(d, filter) {
+  const rows=[...d].sort((a,b)=>b.actual-a.actual).filter(c=>{
+    if(filter==='energy') return c.div==='E';
+    if(filter==='cloud')  return c.div==='C';
+    if(filter==='perm')   return c.type==='PERM';
+    if(filter==='temp')   return c.type==='TEMP';
+    if(filter==='billing')return c.actual>0;
+    return true;
+  });
+  const tb=document.getElementById('lbBody'); tb.innerHTML='';
+  rows.forEach((c,i)=>{
+    const isTop=i<3&&c.actual>0, p=c.pct, bW=p!==null?Math.min(100,p):0;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="rank ${isTop?'top':''}">${i+1}</span></td><td><div class="c-name">${c.name}</div><div class="c-type">${c.type}</div></td><td><span class="badge ${c.div==='E'?'badge-e':'badge-c'}">${c.div==='E'?'Energy':'Cloud'}</span></td><td class="r amt ${c.apr?'':'zero'}">${c.apr?fmtF(c.apr):'—'}</td><td class="r amt ${c.may?'':'zero'}">${c.may?fmtF(c.may):'—'}</td><td class="r amt ${c.jun?'':'zero'}">${c.jun?fmtF(c.jun):'—'}</td><td class="r amt ${c.actual?'':'zero'}" style="font-weight:600">${c.actual?fmtF(c.actual):'—'}</td><td class="r amt ${c.target?'':'zero'}">${c.target?fmtF(c.target):'—'}</td><td class="r"><div class="achieved-cell"><div class="micro-bar"><div class="micro-fill ${fc(p??0)}" style="width:${bW}%"></div></div><span class="pct ${pc(p??0)}">${p!==null?p+'%':'—'}</span></div></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const resp = await fetch(CSV_URL, { cache: 'no-cache' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    const parsed = parseCSV(text);
+    if (parsed && parsed.length > 0) {
+      DATA = parsed;
+      const now = new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('sourceDot').className = 'source-dot live';
+      document.getElementById('sourceText').textContent = `Live · Google Sheets · Fetched ${now} · Refresh to update`;
+      document.getElementById('liveLabel').textContent = 'Live';
+    } else throw new Error('No rows parsed');
+  } catch(err) {
+    console.error('Sheet error:', err);
+    DATA = FALLBACK;
+    document.getElementById('sourceDot').className = 'source-dot cache';
+    document.getElementById('sourceText').textContent = `Cached data · ${err.message}`;
+    document.getElementById('liveLabel').textContent = 'Cached';
+  }
+  renderAll();
+  const l=document.getElementById('loading');
+  l.style.opacity='0'; setTimeout(()=>l.style.display='none',400);
+}
+
+document.querySelectorAll('.curr-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.curr-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); CURR=btn.dataset.curr;
+    document.getElementById('rateBadge').textContent=RATES[CURR].label;
+    renderAll();
+  });
+});
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); FILTER=btn.dataset.filter;
+    renderTable(proc(),FILTER);
+  });
+});
+
+window.addEventListener('load', loadData);
+</script>
+</body>
+</html>
