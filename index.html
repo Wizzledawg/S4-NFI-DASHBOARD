@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S4 NFI League · Q1 Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080a0f; --surface: #0e1118; --surface2: #13161f;
+    --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.10);
+    --text: #e8e6df; --muted: #606060; --muted2: #3a3835;
+    --green: #3ecf8e; --green-dim: rgba(62,207,142,0.12);
+    --amber: #f5a623; --amber-dim: rgba(245,166,35,0.12);
+    --red: #f06060;   --red-dim: rgba(240,96,96,0.12);
+    --blue: #5b9cf6;  --blue-dim: rgba(91,156,246,0.12);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 20px 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(8,10,15,0.96); backdrop-filter: blur(12px); z-index: 100; }
+  .logo-block { display: flex; flex-direction: column; gap: 2px; }
+  .logo-title { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+  .logo-title span { color: var(--green); }
+  .logo-sub { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .currency-switcher { display: flex; background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .curr-btn { font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; padding: 6px 14px; border-radius: 7px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: all .2s; }
+  .curr-btn.active { background: var(--surface); color: var(--text); border: 1px solid var(--border2); }
+  .curr-btn:hover:not(.active) { color: var(--text); }
+  .rate-badge { font-size: 10px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; white-space: nowrap; }
+  .live-chip { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(62,207,142,0.35); color: var(--green); background: var(--green-dim); display: flex; align-items: center; gap: 6px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{ opacity:1; box-shadow:0 0 0 0 rgba(62,207,142,.5); } 50%{ opacity:.7; box-shadow:0 0 0 5px rgba(62,207,142,0); } }
+  .source-banner { display: flex; align-items: center; gap: 10px; padding: 9px 32px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .source-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .source-dot.live  { background: var(--green); box-shadow: 0 0 6px rgba(62,207,142,.5); }
+  .source-dot.cache { background: var(--amber); }
+  main { padding: 24px 32px 60px; max-width: 1400px; margin: 0 auto; }
+  .kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 18px 16px; position: relative; overflow: hidden; animation: fadeUp .45s ease both; }
+  .kpi-card::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent); }
+  .kpi-card:nth-child(1){animation-delay:.05s} .kpi-card:nth-child(2){animation-delay:.10s}
+  .kpi-card:nth-child(3){animation-delay:.15s} .kpi-card:nth-child(4){animation-delay:.20s}
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .kpi-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; margin-bottom:12px; }
+  .kpi-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+  .kpi-value { font-size:30px; font-weight:700; color:#fff; line-height:1; margin-bottom:8px; letter-spacing:-0.5px; }
+  .kpi-delta { font-size:11px; color:var(--muted); }
+  .mid-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; position:relative; overflow:hidden; animation:fadeUp .45s ease .25s both; }
+  .panel::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent); }
+  .panel-title { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:16px; }
+  .bar-chart { display:flex; align-items:flex-end; gap:16px; height:110px; margin-bottom:10px; }
+  .bar-group { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; height:100%; justify-content:flex-end; }
+  .bar-val { font-size:10px; color:var(--muted); white-space:nowrap; }
+  .bars { display:flex; gap:3px; align-items:flex-end; width:100%; justify-content:center; }
+  .bar { border-radius:3px 3px 0 0; width:18px; }
+  .bar-lbl { font-size:11px; color:var(--muted); }
+  .legend { display:flex; gap:14px; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); }
+  .legend-dot { width:8px; height:8px; border-radius:2px; }
+  .split-chart { display:flex; flex-direction:column; gap:22px; }
+  .split-row { display:flex; flex-direction:column; gap:7px; }
+  .split-header { display:flex; justify-content:space-between; align-items:baseline; }
+  .split-name { font-size:13px; font-weight:500; }
+  .split-nums { font-size:11px; color:var(--muted); }
+  .split-track { height:6px; background:var(--surface2); border-radius:6px; overflow:hidden; }
+  .split-fill { height:100%; border-radius:6px; transition:width .9s cubic-bezier(.4,0,.2,1); }
+  .split-sub { font-size:10px; color:var(--muted2); display:flex; gap:12px; }
+  .leaderboard-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; animation:fadeUp .45s ease .35s both; position:relative; overflow:hidden; }
+  .leaderboard-wrap::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent); }
+  .lb-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+  .lb-filters { display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-btn { font-family:inherit; font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:4px 12px; border-radius:20px; border:1px solid var(--border2); background:transparent; color:var(--muted); cursor:pointer; transition:all .15s; }
+  .filter-btn.active, .filter-btn:hover { background:var(--surface2); color:var(--text); }
+  .lb-table { width:100%; border-collapse:collapse; }
+  .lb-table thead th { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted2); font-weight:500; padding:0 8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  .lb-table thead th.r { text-align:right; }
+  .lb-table tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
+  .lb-table tbody tr:hover { background:rgba(255,255,255,.02); }
+  .lb-table tbody tr:last-child { border-bottom:none; }
+  .lb-table td { padding:11px 8px; font-size:12px; color:var(--text); vertical-align:middle; }
+  .lb-table td.r { text-align:right; }
+  .rank { font-size:16px; font-weight:700; color:var(--muted2); }
+  .rank.top { color:var(--green); }
+  .c-name { font-weight:600; font-size:13px; }
+  .c-type { font-size:10px; color:var(--muted); }
+  .badge { display:inline-block; font-size:9px; letter-spacing:.8px; text-transform:uppercase; padding:2px 8px; border-radius:20px; font-weight:600; }
+  .badge-e { background:rgba(245,166,35,.12); color:var(--amber); border:1px solid rgba(245,166,35,.25); }
+  .badge-c { background:rgba(91,156,246,.12); color:var(--blue); border:1px solid rgba(91,156,246,.25); }
+  .amt { font-variant-numeric:tabular-nums; }
+  .amt.zero { color:var(--muted2); }
+  .achieved-cell { display:flex; align-items:center; gap:7px; justify-content:flex-end; }
+  .micro-bar { width:52px; height:4px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .micro-fill { height:100%; border-radius:4px; }
+  .pct { font-weight:600; min-width:34px; text-align:right; font-size:12px; }
+  .cg{color:var(--green)} .ca{color:var(--amber)} .cr{color:var(--red)}
+  .fg{background:var(--green)} .fa{background:var(--amber)} .fr{background:var(--red)}
+  .totals-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; animation:fadeUp .45s ease .4s both; }
+  .total-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; position:relative; overflow:hidden; }
+  .total-card::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent); }
+  .total-card.hl { border-color:rgba(62,207,142,.25); }
+  .total-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+  .total-value { font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+  .total-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+  .total-pct { font-size:36px; font-weight:700; letter-spacing:-1px; }
+  #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:999; transition:opacity .4s; }
+  .loader-title { font-size:20px; font-weight:700; color:var(--green); letter-spacing:3px; text-transform:uppercase; }
+  .loader-bar { width:160px; height:2px; background:var(--surface2); border-radius:2px; overflow:hidden; }
+  .loader-fill { height:100%; background:var(--green); animation:load .9s ease forwards; }
+  @keyframes load { from{width:0} to{width:100%} }
+  .loader-sub { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+  /* ── KPI TRACKER CARD ────────────────────────────────────────────────── */
+  .kpi-tracker { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; margin-bottom:20px; position:relative; overflow:hidden; animation:fadeUp .45s ease .22s both; }
+  .kpi-tracker::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent); }
+  .kpi-tracker-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  .kpi-tracker-header .panel-title { margin-bottom:0; }
+  .kpi-week-nav { display:flex; align-items:center; gap:8px; }
+  .kpi-week-btn { background:var(--surface2); border:1px solid var(--border2); border-radius:7px; color:var(--muted); width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; transition:all .15s; font-family:inherit; }
+  .kpi-week-btn:hover { color:var(--text); border-color:rgba(255,255,255,.15); }
+  .kpi-week-btn:disabled { opacity:.3; cursor:default; }
+  .kpi-week-label { font-size:11px; color:var(--muted); letter-spacing:.5px; min-width:90px; text-align:center; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:12px; }
+  .kpi-metric { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px 14px 10px; display:flex; flex-direction:column; gap:4px; }
+  .kpi-metric-header { display:flex; justify-content:space-between; align-items:center; }
+  .kpi-metric-name { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+  .kpi-metric-delta { font-size:10px; font-weight:600; display:flex; align-items:center; gap:3px; }
+  .kpi-metric-delta .arr { font-size:9px; }
+  .kpi-metric-val { font-size:24px; font-weight:700; color:#fff; line-height:1; letter-spacing:-.3px; }
+  .kpi-metric-spark { height:28px; margin-top:4px; }
+  .kpi-metric-spark svg { width:100%; height:100%; }
+  .kpi-grid-bottom { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .kpi-no-data { grid-column:1/-1; text-align:center; padding:40px 20px; color:var(--muted); font-size:12px; letter-spacing:.5px; }
+  @media(max-width:880px){ .kpi-grid{grid-template-columns:repeat(2,1fr)} .kpi-grid-bottom{grid-template-columns:1fr} }
+
+  footer { text-align:center; padding:16px 32px 24px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted2); border-top:1px solid var(--border); }
+  footer span { color:var(--green); }
+  @media(max-width:880px){ main{padding:16px} header{padding:14px 16px;flex-direction:column;align-items:flex-start;gap:12px;} .kpi-strip{grid-template-columns:repeat(2,1fr)} .mid-row{grid-template-columns:1fr} .totals-strip{grid-template-columns:1fr} .source-banner{padding:8px 16px;} .leaderboard-wrap{padding:16px 0;} .lb-header{padding:0 16px;} .lb-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 16px;} .lb-table{min-width:700px;} .kpi-tracker-header{flex-direction:column;align-items:flex-start;} }
+
+  /* ── PASSWORD GATE ───────────────────────────────────────────────────────── */
+  #pw-gate {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 20px;
+  }
+  .pw-box {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 20px; padding: 44px 40px 40px;
+    width: 100%; max-width: 380px; text-align: center;
+    position: relative; overflow: hidden;
+    animation: fadeUp .4s ease both;
+  }
+  .pw-box::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent); }
+  .pw-logo { font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.3px; margin-bottom: 4px; }
+  .pw-logo span { color: var(--green); }
+  .pw-sub { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 32px; }
+  .pw-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); text-align: left; margin-bottom: 8px; display: block; }
+  .pw-input-wrap { position: relative; margin-bottom: 12px; }
+  .pw-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 13px 46px 13px 16px;
+    color: var(--text); font-family: inherit; font-size: 15px;
+    outline: none; transition: border-color .2s, box-shadow .2s;
+    letter-spacing: 2px;
+  }
+  .pw-input:focus { border-color: rgba(62,207,142,.5); box-shadow: 0 0 0 3px rgba(62,207,142,.08); }
+  .pw-input.error { border-color: rgba(240,96,96,.5); box-shadow: 0 0 0 3px rgba(240,96,96,.08); animation: shake .35s ease; }
+  .pw-toggle {
+    position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    font-size: 16px; padding: 4px; transition: color .15s;
+  }
+  .pw-toggle:hover { color: var(--text); }
+  .pw-btn {
+    width: 100%; padding: 13px; border-radius: 10px; border: none;
+    background: var(--green); color: #000; font-family: inherit;
+    font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; cursor: pointer; transition: opacity .2s, transform .1s;
+    margin-top: 4px;
+  }
+  .pw-btn:hover { opacity: .88; }
+  .pw-btn:active { transform: scale(.98); }
+  .pw-error { font-size: 11px; color: var(--red); margin-top: 10px; min-height: 16px; letter-spacing: .3px; }
+  .pw-hint { font-size: 10px; color: var(--muted2); margin-top: 24px; letter-spacing: .5px; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+    40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+  }
+</style>
+</head>
+<body>
+
+<!-- PASSWORD GATE -->
+<div id="pw-gate">
+  <div class="pw-box">
+    <div class="pw-logo">S4 <span>NFI</span> League</div>
+    <div class="pw-sub">Revenue &amp; Sales · Q1 Dashboard</div>
+    <label class="pw-label" for="pw-input">Access Password</label>
+    <div class="pw-input-wrap">
+      <input id="pw-input" class="pw-input" type="password" placeholder="Enter password" autocomplete="current-password" />
+      <button class="pw-toggle" id="pw-toggle" tabindex="-1" title="Show/hide password">👁</button>
+    </div>
+    <button class="pw-btn" id="pw-submit">Unlock Dashboard</button>
+    <div class="pw-error" id="pw-error"></div>
+    <div class="pw-hint">Contact your S4 admin if you need access.</div>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="loader-title">S4 NFI League</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-sub">Connecting to Google Sheets…</div>
+</div>
+
+<header>
+  <div class="logo-block">
+    <div class="logo-title">S4 <span>NFI</span> League</div>
+    <div class="logo-sub">Revenue &amp; Sales · Q1 · Apr – Jun</div>
+  </div>
+  <div class="header-right">
+    <div class="currency-switcher">
+      <button class="curr-btn active" data-curr="ZAR">🇿🇦 ZAR</button>
+      <button class="curr-btn" data-curr="USD">🇺🇸 USD</button>
+      <button class="curr-btn" data-curr="GBP">🇬🇧 GBP</button>
+    </div>
+    <div class="rate-badge" id="rateBadge">Base currency · ZAR</div>
+    <div class="live-chip"><div class="live-dot"></div><span id="liveLabel">Live</span></div>
+  </div>
+</header>
+
+<div class="source-banner">
+  <div class="source-dot live" id="sourceDot"></div>
+  <span id="sourceText">Fetching live data from Google Sheets…</span>
+</div>
+
+<main>
+  <div class="kpi-strip">
+    <div class="kpi-card"><div class="kpi-icon" style="background:var(--green-dim);color:var(--green)">R</div><div class="kpi-label">S4 Total Actual</div><div class="kpi-value" id="k1">—</div><div class="kpi-delta" id="k1s"></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:var(--amber-dim);color:var(--amber)">E</div><div class="kpi-label">S4 Energy · Perm</div><div class="kpi-value" id="k2">—</div><div class="kpi-delta" id="k2s"></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:var(--blue-dim);color:var(--blue)">C</div><div class="kpi-label">S4 Cloud · Temp</div><div class="kpi-value" id="k3">—</div><div class="kpi-delta" id="k3s"></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:var(--red-dim);color:var(--red)">%</div><div class="kpi-label">Overall Achievement</div><div class="kpi-value" id="k4">—</div><div class="kpi-delta" id="k4s"></div></div>
+  </div>
+  <div class="mid-row">
+    <div class="panel"><div class="panel-title">Monthly Billings</div><div class="bar-chart" id="barChart"></div><div class="legend" id="barLegend"></div></div>
+    <div class="panel"><div class="panel-title">Division vs Target</div><div class="split-chart" id="splitChart"></div></div>
+  </div>
+  <!-- KPI WEEKLY TRACKER -->
+  <div class="kpi-tracker" id="kpiTracker">
+    <div class="kpi-tracker-header">
+      <div class="panel-title">Weekly KPI Tracker</div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="kpi-week-nav">
+          <button class="kpi-week-btn" id="kpiPrev" title="Previous week">‹</button>
+          <div class="kpi-week-label" id="kpiWeekLabel">—</div>
+          <button class="kpi-week-btn" id="kpiNext" title="Next week">›</button>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-grid" id="kpiGridTop"></div>
+    <div class="kpi-grid-bottom" id="kpiGridBottom"></div>
+  </div>
+
+  <div class="leaderboard-wrap">
+    <div class="lb-header">
+      <div class="panel-title" style="margin-bottom:0">Consultant Leaderboard</div>
+      <div class="lb-filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="energy">Energy</button>
+        <button class="filter-btn" data-filter="cloud">Cloud</button>
+        <button class="filter-btn" data-filter="perm">Perm</button>
+        <button class="filter-btn" data-filter="temp">Temp</button>
+        <button class="filter-btn" data-filter="billing">Billing only</button>
+      </div>
+    </div>
+    <div class="lb-table-scroll">
+    <table class="lb-table">
+      <thead><tr><th>#</th><th>Consultant</th><th>Division</th><th class="r">Apr</th><th class="r">May</th><th class="r">Jun</th><th class="r">Q1 Actual</th><th class="r">Q1 Target</th><th class="r">Achieved</th></tr></thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+    </div>
+  </div>
+  <div class="totals-strip" id="totalsStrip"></div>
+</main>
+
+<footer>Data: <span>Google Sheets (Live)</span> · Hosted: <span>GitHub Pages</span> · Refreshes on every page load</footer>
+
+<script>
+// ── PASSWORD GATE ────────────────────────────────────────────────────────────
+// Change DASHBOARD_PASSWORD to whatever shared password you want.
+// For stronger security, move to a server-side auth solution (see Cloudflare Access).
+const DASHBOARD_PASSWORD = 's4nfi2025';
+const SESSION_KEY = 's4nfi_auth';
+
+(function initGate() {
+  const gate = document.getElementById('pw-gate');
+  const input = document.getElementById('pw-input');
+  const submitBtn = document.getElementById('pw-submit');
+  const toggleBtn = document.getElementById('pw-toggle');
+  const errorEl = document.getElementById('pw-error');
+
+  // Already authenticated this session?
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    gate.style.display = 'none';
+    return;
+  }
+
+  // Block the rest of the page from being visible
+  document.querySelector('header') && (document.querySelector('header').style.visibility = 'hidden');
+
+  function attempt() {
+    errorEl.textContent = '';
+    if (input.value === DASHBOARD_PASSWORD) {
+      sessionStorage.setItem(SESSION_KEY, '1');
+      gate.style.opacity = '0';
+      gate.style.transition = 'opacity .35s';
+      setTimeout(() => { gate.style.display = 'none'; }, 350);
+      document.querySelector('header') && (document.querySelector('header').style.visibility = '');
+    } else {
+      input.classList.remove('error');
+      void input.offsetWidth; // reflow to retrigger animation
+      input.classList.add('error');
+      errorEl.textContent = 'Incorrect password. Please try again.';
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  submitBtn.addEventListener('click', attempt);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+  toggleBtn.addEventListener('click', () => {
+    input.type = input.type === 'password' ? 'text' : 'password';
+    toggleBtn.textContent = input.type === 'password' ? '👁' : '🙈';
+  });
+  input.focus();
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9Ld3MQ4IU614rQ3JnnlKgLbSfCpoZvO51STfkU1RPBWnn6Df8dT1DFOlcRBOUgGqzn93eFr1jdYKz/pub?gid=717026801&single=true&output=csv';
+
+const RATES = {
+  ZAR: { rate:1,     sym:'R', label:'Base currency · ZAR' },
+  USD: { rate:16.67, sym:'$', label:'1 USD = R 16.67' },
+  GBP: { rate:21.15, sym:'£', label:'1 GBP = R 21.15' },
+};
+
+// ── ROBUST CSV PARSER ─────────────────────────────────────────────────────
+// Handles quoted fields containing commas e.g. "870,000" → 870000
+function parseCSV(text) {
+
+  // Step 1: properly split each line into fields, respecting quoted commas
+  function splitRow(line) {
+    const fields = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuote = !inQuote;
+      } else if (ch === ',' && !inQuote) {
+        fields.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    fields.push(cur.trim());
+    return fields;
+  }
+
+  const lines = text.trim().split('\n');
+  const headers = splitRow(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+  console.log('Headers:', headers);
+
+  // Find column indices
+  const idx = (...terms) => headers.findIndex(h => terms.some(t => h.includes(t)));
+  const nameIdx   = idx('consultant', 'name');
+  const typeIdx   = idx('perm', 'type');
+  const bizIdx    = idx('business', 'division', 'div');
+  const aprIdx    = idx('apr');
+  const mayIdx    = idx('may');
+  const junIdx    = idx('jun');
+  const targetIdx = idx('q1 target', 'target');
+
+  console.log(`Cols → name:${nameIdx} type:${typeIdx} biz:${bizIdx} apr:${aprIdx} may:${mayIdx} jun:${junIdx} target:${targetIdx}`);
+
+  // Step 2: parse number — strips everything except digits and decimal point
+  const n = v => {
+    if (!v) return 0;
+    // Remove quotes, currency symbols, spaces, commas used as thousand separators
+    const cleaned = v.replace(/"/g,'').replace(/[^0-9.-]/g,'');
+    return cleaned ? parseFloat(cleaned) : 0;
+  };
+
+  const consultants = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const cols = splitRow(lines[i]);
+    const name = (cols[nameIdx] || '').replace(/"/g,'').trim();
+    if (!name) continue;
+
+    const type   = (cols[typeIdx]  || '').replace(/"/g,'').trim().toUpperCase();
+    const biz    = (cols[bizIdx]   || '').replace(/"/g,'').trim();
+    const div    = biz.toLowerCase().includes('energy') ? 'E' : 'C';
+    const apr    = n(cols[aprIdx]);
+    const may    = n(cols[mayIdx]);
+    const jun    = n(cols[junIdx]);
+    const target = n(cols[targetIdx]);
+
+    if (!type && !biz) continue;
+
+    console.log(`→ ${name} | ${div} | Apr:${apr} May:${may} Jun:${jun} Target:${target}`);
+    consultants.push({ name, type, div, apr, may, jun, target });
+  }
+  return consultants.length > 0 ? consultants : null;
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let CURR = 'ZAR', FILTER = 'all', DATA = [];
+
+const cv  = n => n / RATES[CURR].rate;
+const sy  = () => RATES[CURR].sym;
+const sum = (arr, k) => arr.reduce((s,c) => s + (c[k]||0), 0);
+
+function fmt(n) {
+  if (!n||n<=0) return sy()+'–';
+  const v = cv(n);
+  if (v>=1000000) return sy()+(v/1000000).toFixed(2)+'M';
+  if (v>=1000)    return sy()+Math.round(v/1000)+'K';
+  return sy()+Math.round(v).toLocaleString();
+}
+function fmtF(n) {
+  if (!n||n<=0) return '—';
+  return sy()+' '+Math.round(cv(n)).toLocaleString('en-ZA');
+}
+const pc = p => p>=80?'cg':p>=40?'ca':'cr';
+const fc = p => p>=80?'fg':p>=40?'fa':'fr';
+
+function proc() {
+  return DATA.map(c => ({
+    ...c,
+    actual: c.apr + c.may + c.jun,
+    pct: c.target > 0 ? Math.round(((c.apr+c.may+c.jun)/c.target)*100) : null
+  }));
+}
+
+function set(id, html) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (typeof html==='string' && html.includes('<')) el.innerHTML = html;
+  else el.textContent = html;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function renderAll() {
+  const d=proc(), en=d.filter(c=>c.div==='E'), cl=d.filter(c=>c.div==='C');
+  const totA=sum(d,'actual'), totT=d.filter(c=>c.target>0).reduce((s,c)=>s+c.target,0);
+  const enA=sum(en,'actual'), enT=en.filter(c=>c.target>0).reduce((s,c)=>s+c.target,0);
+  const clA=sum(cl,'actual'), clT=cl.filter(c=>c.target>0).reduce((s,c)=>s+c.target,0);
+  const ovP=totT>0?Math.round((totA/totT)*100):0;
+  const enP=enT>0?Math.round((enA/enT)*100):0;
+  const clP=clT>0?Math.round((clA/clT)*100):0;
+  const actv=d.filter(c=>c.actual>0).length;
+
+  set('k1',fmt(totA)); set('k1s',`<span style="color:var(--muted)">Target: ${fmtF(totT)}</span>`);
+  set('k2',fmt(enA));  set('k2s',`<span class="${pc(enP)}">${enP}% of target</span>`);
+  set('k3',fmt(clA));  set('k3s',`<span class="${pc(clP)}">${clP}% of target</span>`);
+  set('k4',ovP+'%');   set('k4s',`<span class="cg">${actv}</span> <span style="color:var(--muted)">of ${DATA.length} billing</span>`);
+
+  const mVals=['apr','may','jun'].map((k,i)=>({lbl:['Apr','May','Jun'][i],tot:sum(d,k),e:sum(en,k),c:sum(cl,k)}));
+  const maxM=Math.max(...mVals.map(m=>m.tot),1);
+  document.getElementById('barChart').innerHTML=mVals.map(m=>{
+    const eH=Math.max(4,Math.round((m.e/maxM)*100)), cH=Math.max(4,Math.round((m.c/maxM)*100));
+    return `<div class="bar-group"><div class="bar-val">${fmt(m.tot)}</div><div class="bars"><div class="bar" style="height:${eH}px;background:var(--amber);opacity:.85"></div><div class="bar" style="height:${cH}px;background:var(--blue);opacity:.85"></div></div><div class="bar-lbl">${m.lbl}</div></div>`;
+  }).join('');
+  document.getElementById('barLegend').innerHTML=`
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber);opacity:.85"></div>Energy</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue);opacity:.85"></div>Cloud</div>`;
+
+  document.getElementById('splitChart').innerHTML=
+    [{name:'S4 Energy (Perm)',a:enA,t:enT,p:enP,col:'var(--amber)'},{name:'S4 Cloud (Temp)',a:clA,t:clT,p:clP,col:'var(--blue)'}]
+    .map(s=>`<div class="split-row">
+      <div class="split-header"><div class="split-name">${s.name}</div><div class="split-nums">${fmtF(s.a)} / ${fmtF(s.t)}</div></div>
+      <div class="split-track"><div class="split-fill" style="width:${Math.min(100,s.p)}%;background:${s.col}"></div></div>
+      <div class="split-sub"><span style="color:${s.col};font-weight:600">${s.p}% achieved</span><span>${fmtF(Math.max(0,s.t-s.a))} remaining</span></div>
+    </div>`).join('');
+
+  renderTable(d, FILTER);
+  renderKpiTracker();
+
+  document.getElementById('totalsStrip').innerHTML=`
+    <div class="total-card hl">
+      <div><div class="total-label">S4 Total Q1</div><div class="total-value">${fmtF(totA)}</div><div class="total-sub">Target: ${fmtF(totT)}</div></div>
+      <div style="text-align:right"><div class="total-pct ${pc(ovP)}">${ovP}%</div><div class="total-sub">of target</div></div>
+    </div>
+    <div class="total-card">
+      <div><div class="total-label">Smart4 Energy</div><div class="total-value">${fmtF(enA)}</div><div class="total-sub">Target: ${fmtF(enT)}</div></div>
+      <div style="text-align:right"><div class="total-pct ${pc(enP)}">${enP}%</div><div class="total-sub">of target</div></div>
+    </div>
+    <div class="total-card">
+      <div><div class="total-label">Smart4 Cloud</div><div class="total-value">${fmtF(clA)}</div><div class="total-sub">Target: ${fmtF(clT)}</div></div>
+      <div style="text-align:right"><div class="total-pct ${pc(clP)}">${clP}%</div><div class="total-sub">of target</div></div>
+    </div>`;
+}
+
+function renderTable(d, filter) {
+  const rows=[...d].sort((a,b)=>b.actual-a.actual).filter(c=>{
+    if(filter==='energy') return c.div==='E';
+    if(filter==='cloud')  return c.div==='C';
+    if(filter==='perm')   return c.type==='PERM';
+    if(filter==='temp')   return c.type==='TEMP';
+    if(filter==='billing')return c.actual>0;
+    return true;
+  });
+  const tb=document.getElementById('lbBody'); tb.innerHTML='';
+  rows.forEach((c,i)=>{
+    const isTop=i<3&&c.actual>0, p=c.pct, bW=p!==null?Math.min(100,p):0;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="rank ${isTop?'top':''}">${i+1}</span></td>
+      <td><div class="c-name">${c.name}</div><div class="c-type">${c.type}</div></td>
+      <td><span class="badge ${c.div==='E'?'badge-e':'badge-c'}">${c.div==='E'?'Energy':'Cloud'}</span></td>
+      <td class="r amt ${c.apr?'':'zero'}">${c.apr?fmtF(c.apr):'—'}</td>
+      <td class="r amt ${c.may?'':'zero'}">${c.may?fmtF(c.may):'—'}</td>
+      <td class="r amt ${c.jun?'':'zero'}">${c.jun?fmtF(c.jun):'—'}</td>
+      <td class="r amt ${c.actual?'':'zero'}" style="font-weight:600">${c.actual?fmtF(c.actual):'—'}</td>
+      <td class="r amt ${c.target?'':'zero'}">${c.target?fmtF(c.target):'—'}</td>
+      <td class="r"><div class="achieved-cell"><div class="micro-bar"><div class="micro-fill ${fc(p??0)}" style="width:${bW}%"></div></div><span class="pct ${pc(p??0)}">${p!==null?p+'%':'—'}</span></div></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ── KPI TRACKER ──────────────────────────────────────────────────────────
+// KPI Tracking sheet
+const KPI_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9Ld3MQ4IU614rQ3JnnlKgLbSfCpoZvO51STfkU1RPBWnn6Df8dT1DFOlcRBOUgGqzn93eFr1jdYKz/pub?gid=610021680&single=true&output=csv';
+
+let KPI_DATA = []; // array of { week, jobsOn, cvSubmitted, specCvs, interviews, perm, temp, nbv }
+let KPI_WEEK_IDX = 0; // index into KPI_DATA, 0 = latest
+
+const KPI_METRICS = [
+  { key:'jobsOn',      label:'Jobs On',              icon:'J', color:'--green',  isCurrency:false },
+  { key:'cvSubmitted',  label:'CV Submitted',         icon:'S', color:'--blue',   isCurrency:false },
+  { key:'specCvs',      label:'Spec CVs Sent',        icon:'V', color:'--amber',  isCurrency:false },
+  { key:'interviews',   label:'Interviews Arranged',  icon:'I', color:'--green',  isCurrency:false },
+  { key:'perm',         label:'Perm Placements',      icon:'P', color:'--amber',  isCurrency:false },
+  { key:'temp',         label:'Temp Placements',      icon:'T', color:'--blue',   isCurrency:false },
+  { key:'nbv',          label:'New Business Value',   icon:'R', color:'--green',  isCurrency:true  },
+];
+
+function parseKpiCSV(text) {
+  // This sheet is transposed: KPI names in col A, weeks across columns
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  function splitRow(line) {
+    const fields = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') inQ = !inQ;
+      else if (ch === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    fields.push(cur.trim());
+    return fields;
+  }
+
+  const rows = lines.map(l => splitRow(l));
+  // Row 0: headers — "KPI / WEEK", 19, 20, 21, ...
+  const headerRow = rows[0];
+  const weekNumbers = headerRow.slice(1).map(w => parseInt(w.replace(/"/g,'').trim()));
+
+  // Build a lookup: lowercased row label -> row values
+  const rowMap = {};
+  for (let i = 1; i < rows.length; i++) {
+    const label = (rows[i][0] || '').replace(/"/g,'').trim().toLowerCase();
+    if (!label) continue;
+    rowMap[label] = rows[i].slice(1);
+  }
+
+  const n = v => {
+    if (!v) return 0;
+    const cleaned = v.replace(/"/g,'').replace(/[^0-9.-]/g,'');
+    return cleaned ? parseFloat(cleaned) : 0;
+  };
+
+  // Map row labels to our keys — flexible matching
+  const labelMap = {
+    'jobs on': 'jobsOn',
+    'cv submitted': 'cvSubmitted',
+    'cvs submitted': 'cvSubmitted',
+    'spec cvs sent': 'specCvs',
+    'spec cvs': 'specCvs',
+    'interviews arranged': 'interviews',
+    'perm placements': 'perm',
+    'perm placement': 'perm',
+    'temp placement': 'temp',
+    'temp placements': 'temp',
+    'new business value': 'nbv',
+  };
+
+  // More flexible: also try partial / fuzzy matching
+  function matchLabel(raw) {
+    const l = raw.toLowerCase().trim();
+    if (labelMap[l]) return labelMap[l];
+    // Partial matching fallback
+    if (l.includes('jobs'))       return 'jobsOn';
+    if (l.includes('cv sub'))     return 'cvSubmitted';
+    if (l.includes('spec'))       return 'specCvs';
+    if (l.includes('interview'))  return 'interviews';
+    if (l.includes('perm'))       return 'perm';
+    if (l.includes('temp'))       return 'temp';
+    if (l.includes('business') || l.includes('nbv')) return 'nbv';
+    return null;
+  }
+
+  // Build rowMap with matched keys
+  const matchedRows = {};
+  for (let i = 1; i < rows.length; i++) {
+    const rawLabel = (rows[i][0] || '').replace(/"/g,'').trim();
+    if (!rawLabel) continue;
+    const key = matchLabel(rawLabel);
+    if (key) {
+      matchedRows[key] = rows[i].slice(1);
+      console.log(`KPI row matched: "${rawLabel}" → ${key}`);
+    } else {
+      console.warn(`KPI row unmatched: "${rawLabel}"`);
+    }
+  }
+
+  const weekData = [];
+  for (let wi = 0; wi < weekNumbers.length; wi++) {
+    const wn = weekNumbers[wi];
+    if (isNaN(wn)) continue;
+    const entry = { week: wn };
+    let hasAnyData = false;
+    for (const key of ['jobsOn','cvSubmitted','specCvs','interviews','perm','temp','nbv']) {
+      if (matchedRows[key]) {
+        const val = n(matchedRows[key][wi] || '');
+        entry[key] = val;
+        if (val > 0) hasAnyData = true;
+      } else {
+        entry[key] = 0;
+      }
+    }
+    // Only include weeks that have at least some data
+    if (hasAnyData) weekData.push(entry);
+  }
+  return weekData;
+}
+
+function getWeekDateRange(weekNum, year) {
+  // ISO week to date
+  const jan4 = new Date(year, 0, 4);
+  const dayOfWeek = jan4.getDay() || 7;
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  const fmt = d => d.toLocaleDateString('en-ZA', { day:'numeric', month:'short' });
+  return `${fmt(monday)} – ${fmt(friday)}`;
+}
+
+function renderKpiTracker() {
+  const topGrid = document.getElementById('kpiGridTop');
+  const bottomGrid = document.getElementById('kpiGridBottom');
+
+  if (!KPI_DATA || KPI_DATA.length === 0) {
+    topGrid.innerHTML = '<div class="kpi-no-data">No KPI data yet — add weekly data to the <strong>KPI Tracking</strong> sheet</div>';
+    bottomGrid.innerHTML = '';
+    document.getElementById('kpiWeekLabel').textContent = '—';
+    return;
+  }
+
+  // KPI_DATA is ordered earliest→latest. KPI_WEEK_IDX 0 = latest, 1 = prev, etc.
+  const latestIdx = KPI_DATA.length - 1 - KPI_WEEK_IDX;
+  const current = KPI_DATA[latestIdx];
+  const prev = latestIdx > 0 ? KPI_DATA[latestIdx - 1] : null;
+
+  // Week label
+  const weekLabel = `Week ${current.week} · ${getWeekDateRange(current.week, 2026)}`;
+  document.getElementById('kpiWeekLabel').textContent = weekLabel;
+
+  // Nav buttons
+  document.getElementById('kpiPrev').disabled = KPI_WEEK_IDX >= KPI_DATA.length - 1;
+  document.getElementById('kpiNext').disabled = KPI_WEEK_IDX <= 0;
+
+  // Build sparkline data (all weeks up to current)
+  const sparkWeeks = KPI_DATA.slice(0, latestIdx + 1);
+
+  function sparkSVG(key, color) {
+    if (sparkWeeks.length < 2) return '';
+    const vals = sparkWeeks.map(w => w[key]);
+    const max = Math.max(...vals, 1);
+    const min = Math.min(...vals, 0);
+    const range = max - min || 1;
+    const w = 100, h = 28, pad = 2;
+    const pts = vals.map((v, i) => {
+      const x = pad + (i / (vals.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return `${x},${y}`;
+    });
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <defs><linearGradient id="sg_${key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(${color})" stop-opacity=".25"/><stop offset="100%" stop-color="var(${color})" stop-opacity="0"/></linearGradient></defs>
+      <polygon points="${pad},${h} ${pts.join(' ')} ${w-pad},${h}" fill="url(#sg_${key})" />
+      <polyline points="${pts.join(' ')}" fill="none" stroke="var(${color})" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function formatDelta(curr, previous, isCurrency) {
+    if (!previous) return '';
+    const diff = curr - previous;
+    if (diff === 0) return `<span class="kpi-metric-delta" style="color:var(--muted)">● No change</span>`;
+    const arrow = diff > 0 ? '▲' : '▼';
+    const color = diff > 0 ? 'var(--green)' : 'var(--red)';
+    const absD = Math.abs(diff);
+    let display;
+    if (isCurrency) {
+      const v = cv(absD);
+      display = v >= 1000 ? sy() + Math.round(v/1000) + 'K' : sy() + Math.round(v);
+    } else {
+      display = absD;
+    }
+    return `<span class="kpi-metric-delta" style="color:${color}"><span class="arr">${arrow}</span>${display}</span>`;
+  }
+
+  function formatVal(val, isCurrency) {
+    if (isCurrency) {
+      const v = cv(val);
+      if (v >= 1000000) return sy() + (v/1000000).toFixed(2) + 'M';
+      if (v >= 1000) return sy() + Math.round(v/1000) + 'K';
+      return sy() + Math.round(v).toLocaleString();
+    }
+    return val.toString();
+  }
+
+  // Top row: first 4 metrics
+  const topMetrics = KPI_METRICS.slice(0, 4);
+  const bottomMetrics = KPI_METRICS.slice(4);
+
+  topGrid.innerHTML = topMetrics.map(m => {
+    const val = current[m.key] || 0;
+    const prevVal = prev ? (prev[m.key] || 0) : null;
+    return `<div class="kpi-metric">
+      <div class="kpi-metric-header">
+        <div class="kpi-metric-name">${m.label}</div>
+        ${formatDelta(val, prevVal, m.isCurrency)}
+      </div>
+      <div class="kpi-metric-val">${formatVal(val, m.isCurrency)}</div>
+      <div class="kpi-metric-spark">${sparkSVG(m.key, m.color)}</div>
+    </div>`;
+  }).join('');
+
+  bottomGrid.innerHTML = bottomMetrics.map(m => {
+    const val = current[m.key] || 0;
+    const prevVal = prev ? (prev[m.key] || 0) : null;
+    return `<div class="kpi-metric">
+      <div class="kpi-metric-header">
+        <div class="kpi-metric-name">${m.label}</div>
+        ${formatDelta(val, prevVal, m.isCurrency)}
+      </div>
+      <div class="kpi-metric-val">${formatVal(val, m.isCurrency)}</div>
+      <div class="kpi-metric-spark">${sparkSVG(m.key, m.color)}</div>
+    </div>`;
+  }).join('');
+}
+
+// Week navigation
+document.getElementById('kpiPrev').addEventListener('click', () => {
+  if (KPI_WEEK_IDX < KPI_DATA.length - 1) { KPI_WEEK_IDX++; renderKpiTracker(); }
+});
+document.getElementById('kpiNext').addEventListener('click', () => {
+  if (KPI_WEEK_IDX > 0) { KPI_WEEK_IDX--; renderKpiTracker(); }
+});
+
+// ── LOAD ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const resp = await fetch(CSV_URL, { cache:'no-cache' });
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    const text = await resp.text();
+    console.log('First 3 CSV lines:\n', text.split('\n').slice(0,3).join('\n'));
+    const parsed = parseCSV(text);
+    if (parsed && parsed.length > 0) {
+      DATA = parsed;
+      const now = new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('sourceDot').className = 'source-dot live';
+      document.getElementById('sourceText').textContent = `Live · Google Sheets · Fetched ${now} · Refresh to update`;
+      document.getElementById('liveLabel').textContent = 'Live';
+    } else throw new Error('No data rows found');
+  } catch(err) {
+    console.error('Load error:', err);
+    document.getElementById('sourceDot').className = 'source-dot cache';
+    document.getElementById('sourceText').textContent = `⚠ ${err.message}`;
+    document.getElementById('liveLabel').textContent = 'Error';
+  }
+
+  // Load KPI Tracker data
+  try {
+    const kpiResp = await fetch(KPI_CSV_URL, { cache:'no-cache' });
+    if (kpiResp.ok) {
+      const kpiText = await kpiResp.text();
+      console.log('KPI CSV first 3 lines:\n', kpiText.split('\n').slice(0,3).join('\n'));
+      const kpiParsed = parseKpiCSV(kpiText);
+      if (kpiParsed && kpiParsed.length > 0) {
+        KPI_DATA = kpiParsed;
+        KPI_WEEK_IDX = 0;
+        console.log(`KPI Tracker: ${KPI_DATA.length} weeks loaded`);
+      }
+    }
+  } catch(e) {
+    console.warn('KPI data load error:', e);
+  }
+
+  renderAll();
+  const l=document.getElementById('loading');
+  l.style.opacity='0'; setTimeout(()=>l.style.display='none',400);
+}
+
+document.querySelectorAll('.curr-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.curr-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); CURR=btn.dataset.curr;
+    document.getElementById('rateBadge').textContent=RATES[CURR].label;
+    renderAll();
+  });
+});
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); FILTER=btn.dataset.filter;
+    renderTable(proc(),FILTER);
+  });
+});
+
+window.addEventListener('load', loadData);
+</script>
+</body>
+</html>
