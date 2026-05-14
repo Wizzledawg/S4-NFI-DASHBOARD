@@ -720,8 +720,9 @@ function parseKPICSV(text) {
     const isNBVRow = NBV_KEYWORDS.some(kw => rowLabel.includes(kw));
 
     // For NBV rows, always attempt to merge currency symbol + number columns
-    // Google Sheets splits "R 1,945,382" into two CSV columns: "R" and "1,945,382"
     if (isNBVRow) {
+      console.log('RAW NBV LINE:', lines[i]);
+      console.log('RAW NBV COLS before merge:', JSON.stringify(cols.slice(0, 15)));
       const merged = [cols[0]];
       let j = 1;
       while (j < cols.length) {
